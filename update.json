@@ -1,5 +1,5 @@
 {
-  "version": "25.0.1",
-  "changelog": "This release fixes an issue that could cause the app to crash when deleting notifications and adds the ability to export pigeon profile pictures, notifications, and jedAccount details for easier backups and sharing.",
+  "version": "25.0.2",
+  "changelog": "This release fixes an issue that pigeon profiles could be deleted upon restarting the app. Your data is now saved correctly and will persist reliably.",
   "url": "https://github.com/ProtonyteTV/jedLoft/releases"
 }
