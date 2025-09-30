@@ -1,5 +1,5 @@
 {
-  "version": "25.0.2",
-  "changelog": "This release fixes an issue that pigeon profiles could be deleted upon restarting the app. Your data is now saved correctly and will persist reliably.",
+  "version": "25.0.3",
+  "changelog": "This update provides important fixes and its recommended for all users.",
   "url": "https://github.com/ProtonyteTV/jedLoft/releases"
 }
