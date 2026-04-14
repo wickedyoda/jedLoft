@@ -1,76 +1,119 @@
-# jedLoft 🐦
+## This  is jedLoft but not an iOS app, this is now as a webpage and inside of a docker container. Call it jedLoft v2!
 
-**A simple and private loft manager for pigeon fanciers.**
 
----
+# jedLoft Web Host
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Swift-5.0+-FF6F00?logo=swift&logoColor=white" />
-  <img src="https://img.shields.io/badge/Platform-iOS%2015+-lightgrey?logo=apple&logoColor=white" />
-  <img src="https://img.shields.io/badge/Framework-SwiftUI-blueviolet" />
-  <img src="https://img.shields.io/badge/Architecture-MVVM-informational" />
-  <img src="https://img.shields.io/badge/Data-JSON%20Local%20Storage-success" />
-  <img src="https://img.shields.io/badge/Offline-First-important" />
-  <img src="https://img.shields.io/badge/Release-25.0-blue" />
-  <img src="https://img.shields.io/badge/Proprietary-Closed%20Source-red" />
-</p>
+This repository now includes a Dockerized web host with user authentication and server-side data storage.
 
----
+## What Is Included
 
-## About The Project
+1. FastAPI web application with server-rendered pages
+2. User registration and login at `/register` and `/login`
+3. Session-protected dashboard at `/dashboard`
+4. PostgreSQL for persistent server storage
+5. Docker + Docker Compose for easy local hosting and management
+6. Local bind mounts:
+	- `./` mapped to `/app`
+	- `./data` mapped to `/app/data`
+7. Role-based access (`admin`, `read_only`) with admin approval flow for self-registered users
+8. Password policy and history enforcement:
+	- Minimum 6 characters
+	- At least 2 uppercase letters
+	- Cannot reuse current or last 2 passwords
+9. Bird records with long-term SQL storage for:
+	- Type of bird
+	- Sex of bird
+	- Band number (if banded)
+	- Birth date and birthplace
+	- Foreign loft owner name
+	- Pedigree and bloodline
+	- Special colors and features/markings
+	- Family tree notes
+	- Paired mate band number
 
-jedLoft is a simple iOS app for pigeon hobbyists to manage their flock. You can create profiles for your pigeons, log flight times, track breeding pairs, and keep all your data safe and offline on your device.
+## Stack
 
----
+1. FastAPI
+2. SQLAlchemy
+3. PostgreSQL
+4. Jinja2 templates
+5. Docker / Docker Compose
 
-## Core Features
+## Quick Start
 
-* **Flock Management**  
-  Create profiles for each pigeon including name, ring ID, breed, color, and photo.
+1. Start the stack:
 
-* **Flight Tracking**  
-  Log flights with release and arrival times, and see calculated flight duration and averages.
+```bash
+docker compose up --build
+```
 
-* **Breeding Module**  
-  Manage pairs, track eggs, predict hatch dates, and automatically create profiles for new birds with pedigree info.
+2. Open the site:
 
-* **Pedigree Charts**  
-  Visualize up to three generations of pigeon lineage.
+```text
+http://localhost:8000
+```
 
-* **Data Backup & Restore**  
-  Export and import JSON backups for all your data.
+3. Create an account on the register page and log in.
 
-* **Customization**  
-  Light/Dark/System themes, daily reminders, and global Offline Mode.
+## Environment Variables
 
----
+The default development `.env` is already included.
 
-## Technology Stack
+Use `.env.example` as the template for production:
 
-* **Language**: Swift  
-* **Framework**: SwiftUI  
-* **Platform**: iOS 15+ (iPhone & iPod touch)  
-* **Architecture**: MVVM-inspired  
-* **Data Storage**: Local JSON  
-* **UIKit Integration**: `UIViewControllerRepresentable` for animations and system features  
+```env
+DATABASE_URL=postgresql+psycopg2://jedloft:jedloft@db:5432/jedloft
+SESSION_SECRET=change-this-to-a-long-random-string
+DEFAULT_ADMIN_NAME=System Admin
+DEFAULT_ADMIN_EMAIL=admin@example.com
+DEFAULT_ADMIN_PASSWORD=AdminAA1
+```
 
----
+`docker-compose.yml` reads `example.env` first, then `.env` for local overrides.
 
-## The Team
+## Container Management
 
-* **Kyle L.** - Founder & Lead Developer  
-* **Michael Jones S.** - Lead Backend Developer  
-* **Mark A.** - Head of UI/UX  
-* **Zack M.** - Head of Privacy & Policy  
-* **Benjie D.** - Lead Release Manager  
-* **Miggy R.** - Head of GitHub & Web  
-* **Lorince Mac B.** - Lead Documentation Writer  
-* **Pokyo** - Lead QA Tester  
-* **jed** - Honorary Inspiration  
+Start:
 
----
+```bash
+docker compose up -d --build
+```
 
-### 2025 jedPlatforms. All Rights Reserved.
+Stop:
 
-**Notice of Proprietary Rights**  
-jedLoft is proprietary software. All rights remain with jedPlatforms. The app is for personal use only — do not copy, redistribute, or modify without permission. 💡
+```bash
+docker compose down
+```
+
+Stop and remove database volume:
+
+```bash
+docker compose down -v
+```
+
+View logs:
+
+```bash
+docker compose logs -f web
+```
+
+## Bind Mounts
+
+1. The web container runs from `/app` and binds to your local project directory (`./:/app`).
+2. The app data directory is `/app/data` and binds to `./data` (`./data:/app/data`).
+3. PostgreSQL data is persisted in `./data/postgres`.
+
+## Security Notes
+
+1. Change `SESSION_SECRET` before deploying publicly.
+2. Set HTTPS at your reverse proxy when hosting on the internet.
+3. Replace default database credentials for production.
+
+## Project Structure
+
+1. `app/main.py`: Routes, auth flow, session handling
+2. `app/models.py`: Database models
+3. `app/database.py`: SQLAlchemy engine/session setup
+4. `templates/`: Login/register/dashboard HTML pages
+5. `docker-compose.yml`: Web + PostgreSQL services
+6. `data/`: Local persistent bind-mounted storage
