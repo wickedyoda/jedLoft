@@ -12,6 +12,9 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     role = Column(String(32), nullable=False, default="read_only")
     is_approved = Column(Boolean, nullable=False, default=False)
+    is_enabled = Column(Boolean, nullable=False, default=True)
+    theme = Column(String(32), nullable=False, default="standard")
+    text_size = Column(String(16), nullable=False, default="medium")
     password_hash = Column(String(255), nullable=False)
     approved_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -49,6 +52,22 @@ class Bird(Base):
     bloodline = Column(String(255), nullable=True)
     special_colors = Column(String(255), nullable=True)
     features_markings = Column(String(255), nullable=True)
+    racing_homer_notes = Column(String(1500), nullable=True)
     family_tree_notes = Column(String(1500), nullable=True)
     mate_band_number = Column(String(120), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class FlightLog(Base):
+    __tablename__ = "flight_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    bird_id = Column(Integer, ForeignKey("birds.id", ondelete="SET NULL"), nullable=True, index=True)
+    bird_band_number = Column(String(120), nullable=True)
+    flight_date = Column(Date, nullable=False)
+    release_location = Column(String(255), nullable=True)
+    arrival_location = Column(String(255), nullable=True)
+    distance_km = Column(String(50), nullable=True)
+    duration_minutes = Column(Integer, nullable=True)
+    notes = Column(String(1500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
