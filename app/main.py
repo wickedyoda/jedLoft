@@ -17,7 +17,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import hash_password, verify_password
 from .database import Base, SessionLocal, engine
-from .models import Bird, FlightLog, PasswordHistory, User
+from .models import Bird, FlightLog, GroupMembership, OwnershipGroup, PasswordHistory, User
 
 load_dotenv()
 
@@ -27,6 +27,7 @@ PASSWORD_MIN_LENGTH = 6
 PASSWORD_MIN_UPPERCASE = 2
 VALID_THEMES = {"standard", "colorblind"}
 VALID_TEXT_SIZES = {"small", "medium", "large"}
+VALID_GROUP_PERMISSIONS = {"view", "edit", "none"}
 
 LOG_DIR = Path(os.getenv("LOG_DIR", "/logs"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -78,9 +79,11 @@ def ensure_user_table_columns() -> None:
         conn.execute(text("UPDATE users SET text_size = 'medium' WHERE text_size IS NULL"))
 
 
-def ensure_bird_table_columns() -> None:
+def ensure_record_table_columns() -> None:
     with engine.begin() as conn:
         conn.execute(text("ALTER TABLE birds ADD COLUMN IF NOT EXISTS racing_homer_notes VARCHAR(1500)"))
+        conn.execute(text("ALTER TABLE birds ADD COLUMN IF NOT EXISTS ownership_group_id INTEGER"))
+        conn.execute(text("ALTER TABLE flight_logs ADD COLUMN IF NOT EXISTS ownership_group_id INTEGER"))
 
 
 def validate_password_policy(password: str) -> str | None:
@@ -170,7 +173,7 @@ def bootstrap_default_admin() -> None:
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
     ensure_user_table_columns()
-    ensure_bird_table_columns()
+    ensure_record_table_columns()
     bootstrap_default_admin()
 
 
@@ -233,13 +236,75 @@ def require_admin(request: Request, db: Session) -> User | None:
     return user
 
 
+def group_permissions_for_user(user: User, db: Session) -> dict[int, str]:
+    if user.role == ROLE_ADMIN:
+        return {group.id: "edit" for group in db.query(OwnershipGroup).all()}
+
+    memberships = db.query(GroupMembership).filter(GroupMembership.user_id == user.id).all()
+    return {membership.group_id: membership.permission for membership in memberships}
+
+
+def can_view_group(user: User, group_id: int | None, db: Session) -> bool:
+    if user.role == ROLE_ADMIN:
+        return True
+    if group_id is None:
+        return False
+    permissions = group_permissions_for_user(user, db)
+    return permissions.get(group_id) in {"view", "edit"}
+
+
+def can_edit_group(user: User, group_id: int | None, db: Session) -> bool:
+    if user.role == ROLE_ADMIN:
+        return True
+    if group_id is None:
+        return False
+    permissions = group_permissions_for_user(user, db)
+    return permissions.get(group_id) == "edit"
+
+
 def dashboard_context(user: User, db: Session, error: str | None = None, success: str | None = None) -> dict:
-    birds = db.query(Bird).order_by(Bird.created_at.desc(), Bird.id.desc()).all()
-    flight_logs = db.query(FlightLog).order_by(FlightLog.flight_date.desc(), FlightLog.id.desc()).all()
+    all_groups = db.query(OwnershipGroup).order_by(OwnershipGroup.name.asc()).all()
+    group_name_by_id = {group.id: group.name for group in all_groups}
+
+    if user.role == ROLE_ADMIN:
+        birds = db.query(Bird).order_by(Bird.created_at.desc(), Bird.id.desc()).all()
+        flight_logs = db.query(FlightLog).order_by(FlightLog.flight_date.desc(), FlightLog.id.desc()).all()
+        visible_groups = all_groups
+        editable_groups = all_groups
+    else:
+        permissions = group_permissions_for_user(user, db)
+        view_ids = [group_id for group_id, permission in permissions.items() if permission in {"view", "edit"}]
+        edit_ids = [group_id for group_id, permission in permissions.items() if permission == "edit"]
+
+        if view_ids:
+            birds = (
+                db.query(Bird)
+                .filter(Bird.ownership_group_id.in_(view_ids))
+                .order_by(Bird.created_at.desc(), Bird.id.desc())
+                .all()
+            )
+            flight_logs = (
+                db.query(FlightLog)
+                .filter(FlightLog.ownership_group_id.in_(view_ids))
+                .order_by(FlightLog.flight_date.desc(), FlightLog.id.desc())
+                .all()
+            )
+            visible_groups = [group for group in all_groups if group.id in view_ids]
+            editable_groups = [group for group in all_groups if group.id in edit_ids]
+        else:
+            birds = []
+            flight_logs = []
+            visible_groups = []
+            editable_groups = []
+
     return {
         "user": user,
         "birds": birds,
         "flight_logs": flight_logs,
+        "ownership_groups": visible_groups,
+        "editable_groups": editable_groups,
+        "can_edit_records": len(editable_groups) > 0,
+        "group_name_by_id": group_name_by_id,
         "error": error,
         "success": success,
     }
@@ -253,10 +318,34 @@ def admin_context(user: User, db: Session, error: str | None = None, success: st
         .all()
     )
     all_users = db.query(User).order_by(User.created_at.asc()).all()
+    ownership_groups = db.query(OwnershipGroup).order_by(OwnershipGroup.name.asc()).all()
+
+    memberships = (
+        db.query(GroupMembership, User, OwnershipGroup)
+        .join(User, GroupMembership.user_id == User.id)
+        .join(OwnershipGroup, GroupMembership.group_id == OwnershipGroup.id)
+        .order_by(User.email.asc(), OwnershipGroup.name.asc())
+        .all()
+    )
+
+    membership_rows = [
+        {
+            "membership_id": membership.id,
+            "user_id": user_row.id,
+            "user_email": user_row.email,
+            "group_id": group.id,
+            "group_name": group.name,
+            "permission": membership.permission,
+        }
+        for membership, user_row, group in memberships
+    ]
+
     return {
         "user": user,
         "pending_users": pending_users,
         "all_users": all_users,
+        "ownership_groups": ownership_groups,
+        "membership_rows": membership_rows,
         "error": error,
         "success": success,
     }
@@ -471,6 +560,7 @@ def update_preferences(
 @app.post("/birds", response_class=HTMLResponse)
 def create_bird(
     request: Request,
+    ownership_group_id: str = Form(""),
     bird_type: str = Form(...),
     sex: str = Form(...),
     band_number: str = Form(""),
@@ -486,19 +576,30 @@ def create_bird(
     mate_band_number: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    admin = require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/dashboard", status_code=302)
+    user, _ = active_session_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    if not ownership_group_id.strip().isdigit():
+        return render("dashboard.html", request, **dashboard_context(user, db, error="Ownership group is required."), status_code=400)
+    group_id = int(ownership_group_id)
+
+    group = db.query(OwnershipGroup).filter(OwnershipGroup.id == group_id).first()
+    if not group:
+        return render("dashboard.html", request, **dashboard_context(user, db, error="Ownership group was not found."), status_code=404)
+
+    if not can_edit_group(user, group_id, db):
+        return render("dashboard.html", request, **dashboard_context(user, db, error="You do not have edit access to this ownership group."), status_code=403)
 
     normalized_type = bird_type.strip()
     normalized_sex = sex.strip()
     normalized_band = band_number.strip() or None
     if not normalized_type:
-        return render("dashboard.html", request, **dashboard_context(admin, db, error="Bird type is required."), status_code=400)
+        return render("dashboard.html", request, **dashboard_context(user, db, error="Bird type is required."), status_code=400)
     if not normalized_sex:
-        return render("dashboard.html", request, **dashboard_context(admin, db, error="Bird sex is required."), status_code=400)
+        return render("dashboard.html", request, **dashboard_context(user, db, error="Bird sex is required."), status_code=400)
     if normalized_band and db.query(Bird).filter(Bird.band_number == normalized_band).first():
-        return render("dashboard.html", request, **dashboard_context(admin, db, error="Band number already exists."), status_code=409)
+        return render("dashboard.html", request, **dashboard_context(user, db, error="Band number already exists."), status_code=409)
 
     parsed_birth_date = None
     if birth_date.strip():
@@ -508,11 +609,12 @@ def create_bird(
             return render(
                 "dashboard.html",
                 request,
-                **dashboard_context(admin, db, error="Birth date must use YYYY-MM-DD format."),
+                **dashboard_context(user, db, error="Birth date must use YYYY-MM-DD format."),
                 status_code=400,
             )
 
     bird = Bird(
+        ownership_group_id=group_id,
         bird_type=normalized_type,
         sex=normalized_sex,
         band_number=normalized_band,
@@ -529,13 +631,14 @@ def create_bird(
     )
     db.add(bird)
     db.commit()
-    log_event("bird_created", user_id=admin.id, band_number=bird.band_number)
+    log_event("bird_created", user_id=user.id, band_number=bird.band_number, group_id=group_id)
     return RedirectResponse("/dashboard", status_code=302)
 
 
 @app.post("/flights", response_class=HTMLResponse)
 def create_flight_log(
     request: Request,
+    ownership_group_id: str = Form(""),
     bird_band_number: str = Form(""),
     flight_date: str = Form(...),
     release_location: str = Form(""),
@@ -545,9 +648,20 @@ def create_flight_log(
     notes: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    admin = require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/dashboard", status_code=302)
+    user, _ = active_session_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    if not ownership_group_id.strip().isdigit():
+        return render("dashboard.html", request, **dashboard_context(user, db, error="Ownership group is required."), status_code=400)
+    group_id = int(ownership_group_id)
+
+    group = db.query(OwnershipGroup).filter(OwnershipGroup.id == group_id).first()
+    if not group:
+        return render("dashboard.html", request, **dashboard_context(user, db, error="Ownership group was not found."), status_code=404)
+
+    if not can_edit_group(user, group_id, db):
+        return render("dashboard.html", request, **dashboard_context(user, db, error="You do not have edit access to this ownership group."), status_code=403)
 
     try:
         parsed_flight_date = date.fromisoformat(flight_date.strip())
@@ -555,7 +669,7 @@ def create_flight_log(
         return render(
             "dashboard.html",
             request,
-            **dashboard_context(admin, db, error="Flight date must use YYYY-MM-DD format."),
+            **dashboard_context(user, db, error="Flight date must use YYYY-MM-DD format."),
             status_code=400,
         )
 
@@ -565,15 +679,23 @@ def create_flight_log(
             return render(
                 "dashboard.html",
                 request,
-                **dashboard_context(admin, db, error="Duration must be a whole number of minutes."),
+                **dashboard_context(user, db, error="Duration must be a whole number of minutes."),
                 status_code=400,
             )
         parsed_duration = int(duration_minutes.strip())
 
     band = bird_band_number.strip()
     linked_bird = db.query(Bird).filter(Bird.band_number == band).first() if band else None
+    if linked_bird and linked_bird.ownership_group_id != group_id:
+        return render(
+            "dashboard.html",
+            request,
+            **dashboard_context(user, db, error="Linked bird does not belong to the selected ownership group."),
+            status_code=400,
+        )
 
     flight = FlightLog(
+        ownership_group_id=group_id,
         bird_id=linked_bird.id if linked_bird else None,
         bird_band_number=band or None,
         flight_date=parsed_flight_date,
@@ -585,7 +707,7 @@ def create_flight_log(
     )
     db.add(flight)
     db.commit()
-    log_event("flight_log_created", user_id=admin.id, bird_band_number=flight.bird_band_number)
+    log_event("flight_log_created", user_id=user.id, bird_band_number=flight.bird_band_number, group_id=group_id)
     return RedirectResponse("/dashboard", status_code=302)
 
 
@@ -595,6 +717,86 @@ def admin_page(request: Request, db: Session = Depends(get_db)):
     if not admin:
         return RedirectResponse("/dashboard", status_code=302)
     return render("admin.html", request, **admin_context(admin, db))
+
+
+@app.post("/admin/groups", response_class=HTMLResponse)
+def create_ownership_group(
+    request: Request,
+    name: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    admin = require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/dashboard", status_code=302)
+
+    normalized_name = name.strip()
+    if not normalized_name:
+        return render("admin.html", request, **admin_context(admin, db, error="Group name is required."), status_code=400)
+
+    existing = db.query(OwnershipGroup).filter(OwnershipGroup.name == normalized_name).first()
+    if existing:
+        return render("admin.html", request, **admin_context(admin, db, error="Ownership group already exists."), status_code=409)
+
+    group = OwnershipGroup(name=normalized_name)
+    db.add(group)
+    db.commit()
+    log_event("ownership_group_created", admin_id=admin.id, group_name=normalized_name)
+    return RedirectResponse("/admin", status_code=302)
+
+
+@app.post("/admin/groups/memberships", response_class=HTMLResponse)
+def upsert_group_membership(
+    request: Request,
+    user_id: str = Form(...),
+    group_id: str = Form(...),
+    permission: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    admin = require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/dashboard", status_code=302)
+
+    if not user_id.isdigit() or not group_id.isdigit():
+        return render("admin.html", request, **admin_context(admin, db, error="User and group are required."), status_code=400)
+
+    normalized_permission = permission.strip().lower()
+    if normalized_permission not in VALID_GROUP_PERMISSIONS:
+        return render("admin.html", request, **admin_context(admin, db, error="Invalid membership permission."), status_code=400)
+
+    target_user = db.query(User).filter(User.id == int(user_id)).first()
+    target_group = db.query(OwnershipGroup).filter(OwnershipGroup.id == int(group_id)).first()
+    if not target_user or not target_group:
+        return render("admin.html", request, **admin_context(admin, db, error="User or group not found."), status_code=404)
+
+    membership = (
+        db.query(GroupMembership)
+        .filter(GroupMembership.user_id == target_user.id, GroupMembership.group_id == target_group.id)
+        .first()
+    )
+
+    if normalized_permission == "none":
+        if membership:
+            db.delete(membership)
+            db.commit()
+            log_event("group_membership_removed", admin_id=admin.id, target_user_id=target_user.id, group_id=target_group.id)
+        return RedirectResponse("/admin", status_code=302)
+
+    if membership:
+        membership.permission = normalized_permission
+        db.add(membership)
+    else:
+        membership = GroupMembership(user_id=target_user.id, group_id=target_group.id, permission=normalized_permission)
+        db.add(membership)
+    db.commit()
+
+    log_event(
+        "group_membership_updated",
+        admin_id=admin.id,
+        target_user_id=target_user.id,
+        group_id=target_group.id,
+        permission=normalized_permission,
+    )
+    return RedirectResponse("/admin", status_code=302)
 
 
 @app.post("/admin/users/{target_user_id}/approve", response_class=HTMLResponse)

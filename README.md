@@ -34,6 +34,7 @@ This repository now includes a Dockerized web host with user authentication and 
 11. Settings page for password reset, email change, colorblind theme, and text size
 12. Admin page for user approval, user enable/disable, role management, and logs export
 13. Mobile-friendly navigation menu and simplified GUI cards/tables
+14. Ownership groups for birds and flight logs with per-user `view` or `edit` access by group
 
 ## Stack
 

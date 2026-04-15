@@ -11,10 +11,21 @@
   <p class="success">{{ success }}</p>
   {% endif %}
 
-  {% if user.role == "admin" %}
+  {% if not ownership_groups %}
+  <p class="warning">No ownership group access is assigned to your account yet.</p>
+  {% endif %}
+
+  {% if can_edit_records %}
   <div class="status-box">
     <h2>Add Bird Record</h2>
     <form method="post" action="/birds" class="form-grid compact two-col">
+      <label for="ownership_group_id">Ownership group</label>
+      <select id="ownership_group_id" name="ownership_group_id" required>
+        {% for group in editable_groups %}
+        <option value="{{ group.id }}">{{ group.name }}</option>
+        {% endfor %}
+      </select>
+
       <label for="bird_type">Type of bird</label>
       <input id="bird_type" name="bird_type" type="text" required />
       <label for="sex">Sex of bird</label>
@@ -48,6 +59,13 @@
   <div class="status-box">
     <h2>Add Flight Log</h2>
     <form method="post" action="/flights" class="form-grid compact two-col">
+      <label for="flight_group_id">Ownership group</label>
+      <select id="flight_group_id" name="ownership_group_id" required>
+        {% for group in editable_groups %}
+        <option value="{{ group.id }}">{{ group.name }}</option>
+        {% endfor %}
+      </select>
+
       <label for="bird_band_number">Bird band number</label>
       <input id="bird_band_number" name="bird_band_number" type="text" />
       <label for="flight_date">Flight date</label>
@@ -68,11 +86,25 @@
   {% endif %}
 
   <div class="status-box">
+    <h2>Ownership Groups You Can View</h2>
+    {% if ownership_groups %}
+    <ul>
+      {% for group in ownership_groups %}
+      <li>{{ group.name }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="meta">No ownership groups assigned.</p>
+    {% endif %}
+  </div>
+
+  <div class="status-box">
     <h2>Bird Records</h2>
     {% if birds %}
     <table class="table table-small">
       <thead>
         <tr>
+          <th>Ownership group</th>
           <th>Type</th>
           <th>Sex</th>
           <th>Band #</th>
@@ -91,6 +123,7 @@
       <tbody>
         {% for bird in birds %}
         <tr>
+          <td>{{ group_name_by_id.get(bird.ownership_group_id, "-") }}</td>
           <td>{{ bird.bird_type }}</td>
           <td>{{ bird.sex }}</td>
           <td>{{ bird.band_number or "-" }}</td>
@@ -119,6 +152,7 @@
     <table class="table table-small">
       <thead>
         <tr>
+          <th>Ownership group</th>
           <th>Date</th>
           <th>Band #</th>
           <th>Release</th>
@@ -131,6 +165,7 @@
       <tbody>
         {% for flight in flight_logs %}
         <tr>
+          <td>{{ group_name_by_id.get(flight.ownership_group_id, "-") }}</td>
           <td>{{ flight.flight_date }}</td>
           <td>{{ flight.bird_band_number or "-" }}</td>
           <td>{{ flight.release_location or "-" }}</td>

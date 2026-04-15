@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -42,6 +42,7 @@ class Bird(Base):
     __tablename__ = "birds"
 
     id = Column(Integer, primary_key=True, index=True)
+    ownership_group_id = Column(Integer, ForeignKey("ownership_groups.id", ondelete="SET NULL"), nullable=True, index=True)
     bird_type = Column(String(120), nullable=False)
     sex = Column(String(20), nullable=False)
     band_number = Column(String(120), unique=True, index=True, nullable=True)
@@ -62,6 +63,7 @@ class FlightLog(Base):
     __tablename__ = "flight_logs"
 
     id = Column(Integer, primary_key=True, index=True)
+    ownership_group_id = Column(Integer, ForeignKey("ownership_groups.id", ondelete="SET NULL"), nullable=True, index=True)
     bird_id = Column(Integer, ForeignKey("birds.id", ondelete="SET NULL"), nullable=True, index=True)
     bird_band_number = Column(String(120), nullable=True)
     flight_date = Column(Date, nullable=False)
@@ -70,4 +72,23 @@ class FlightLog(Base):
     distance_km = Column(String(50), nullable=True)
     duration_minutes = Column(Integer, nullable=True)
     notes = Column(String(1500), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class OwnershipGroup(Base):
+    __tablename__ = "ownership_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), unique=True, nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class GroupMembership(Base):
+    __tablename__ = "group_memberships"
+    __table_args__ = (UniqueConstraint("user_id", "group_id", name="uq_group_membership_user_group"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    group_id = Column(Integer, ForeignKey("ownership_groups.id", ondelete="CASCADE"), nullable=False, index=True)
+    permission = Column(String(16), nullable=False, default="view")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
