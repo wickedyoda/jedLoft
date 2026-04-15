@@ -161,12 +161,17 @@ Pushes to `main` and pull requests targeting `main` run GitHub Actions checks th
 
 ## Docker Image Publish
 
-Pushes to `main` also build and publish a multi-arch image to GitHub Container Registry for:
+After `CI` passes on `main`, a separate workflow publishes a multi-arch image to GitHub Container Registry for:
 
 1. `linux/amd64`
 2. `linux/arm64`
 
 The published image uses the `IMAGE_NAME` value, which defaults to `ghcr.io/protonytetv/jedloft`.
+
+The workflows are separated as follows:
+
+1. `Code Safety` - syntax, dependency, and security checks only.
+2. `Container Release` - builds and publishes `linux/amd64` and `linux/arm64` images after successful `Code Safety` on `main`.
 
 ## Bind Mounts
 
