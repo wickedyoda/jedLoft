@@ -1,6 +1,6 @@
 services:
   web:
-    image: ${IMAGE_NAME:-ghcr.io/protonytetv/jedloft:latest}
+    image: ${IMAGE_NAME:-ghcr.io/wickedyoda/jedloft:latest}
     build:
       context: .
       dockerfile: Dockerfile

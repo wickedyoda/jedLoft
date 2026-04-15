@@ -66,7 +66,7 @@ The default development `.env` is already included.
 Use `.env.example` as the template for production:
 
 ```env
-IMAGE_NAME=ghcr.io/protonytetv/jedloft:latest
+IMAGE_NAME=ghcr.io/wickedyoda/jedloft:latest
 WEB_PORT=8000
 POSTGRES_PORT=5432
 POSTGRES_DB=jedloft
@@ -141,13 +141,13 @@ docker compose logs -f web
 The CI workflow publishes a multi-arch image to GitHub Container Registry:
 
 ```text
-ghcr.io/protonytetv/jedloft:latest
+ghcr.io/wickedyoda/jedloft:latest
 ```
 
 You can also pull a SHA-tagged image from the same registry after a main branch push.
 
 ```bash
-docker pull ghcr.io/protonytetv/jedloft:latest
+docker pull ghcr.io/wickedyoda/jedloft:latest
 ```
 
 ## Push Safety Checks
@@ -166,12 +166,15 @@ After `CI` passes on `main`, a separate workflow publishes a multi-arch image to
 1. `linux/amd64`
 2. `linux/arm64`
 
-The published image uses the `IMAGE_NAME` value, which defaults to `ghcr.io/protonytetv/jedloft`.
+The published image uses the `IMAGE_NAME` value, which defaults to `ghcr.io/wickedyoda/jedloft`.
 
 The workflows are separated as follows:
 
 1. `Code Safety` - syntax, dependency, and security checks only.
 2. `Container Release` - builds and publishes `linux/amd64` and `linux/arm64` images after successful `Code Safety` on `main`.
+
+If GHCR push fails with `permission_denied: The requested installation does not exist`, add a repository secret named `GHCR_TOKEN` (PAT with `write:packages` and `read:packages`).
+The workflow uses `GHCR_TOKEN` when present and falls back to `GITHUB_TOKEN` otherwise.
 
 ## Bind Mounts
 
