@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="card">
-  <h1>Welcome, {{ user.name }}</h1>
-  <p class="subtitle">Signed in as {{ user.email }} | Role: {{ user.role }}</p>
+<section class="card wide-card">
+  <h1>Dashboard</h1>
+  <p class="subtitle">Welcome {{ user.name }} ({{ user.role }})</p>
 
   {% if error %}
   <p class="error">{{ error }}</p>
@@ -11,131 +11,59 @@
   <p class="success">{{ success }}</p>
   {% endif %}
 
-  {% if not user.is_approved %}
-  <p class="warning">Your account is pending admin approval. Access is limited until approved.</p>
-  {% endif %}
-
-  <div class="status-box">
-    <h2>Change Password</h2>
-    <form method="post" action="/account/password" class="form-grid compact">
-      <label for="current_password">Current password</label>
-      <input id="current_password" name="current_password" type="password" required />
-
-      <label for="new_password">New password</label>
-      <input id="new_password" name="new_password" type="password" minlength="6" required />
-      <p class="meta">Password policy: minimum 6 characters, at least 2 uppercase letters, and no reuse of your last 2 passwords.</p>
-
-      <button type="submit">Update Password</button>
-    </form>
-  </div>
-
   {% if user.role == "admin" %}
   <div class="status-box">
     <h2>Add Bird Record</h2>
-    <form method="post" action="/birds" class="form-grid compact">
+    <form method="post" action="/birds" class="form-grid compact two-col">
       <label for="bird_type">Type of bird</label>
       <input id="bird_type" name="bird_type" type="text" required />
-
       <label for="sex">Sex of bird</label>
       <input id="sex" name="sex" type="text" required />
-
       <label for="band_number">Band number (if banded)</label>
       <input id="band_number" name="band_number" type="text" />
-
       <label for="birth_date">Birth date</label>
       <input id="birth_date" name="birth_date" type="date" />
-
       <label for="birth_place">Birthplace</label>
       <input id="birth_place" name="birth_place" type="text" />
-
       <label for="foreign_loft_owner_name">Foreign loft owner name</label>
       <input id="foreign_loft_owner_name" name="foreign_loft_owner_name" type="text" />
-
       <label for="pedigree">Pedigree</label>
       <input id="pedigree" name="pedigree" type="text" />
-
       <label for="bloodline">Bloodline</label>
       <input id="bloodline" name="bloodline" type="text" />
-
       <label for="special_colors">Special colors</label>
       <input id="special_colors" name="special_colors" type="text" />
-
       <label for="features_markings">Features / markings</label>
       <input id="features_markings" name="features_markings" type="text" />
-
+      <label for="racing_homer_notes">Racing homers notes</label>
+      <textarea id="racing_homer_notes" name="racing_homer_notes" rows="2"></textarea>
       <label for="family_tree_notes">Family tree notes</label>
-      <textarea id="family_tree_notes" name="family_tree_notes" rows="3"></textarea>
-
+      <textarea id="family_tree_notes" name="family_tree_notes" rows="2"></textarea>
       <label for="mate_band_number">Paired mate band number</label>
       <input id="mate_band_number" name="mate_band_number" type="text" />
-
       <button type="submit">Save Bird</button>
     </form>
   </div>
 
   <div class="status-box">
-    <h2>Pending Approvals</h2>
-    {% if pending_users %}
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Email</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for pending in pending_users %}
-        <tr>
-          <td>{{ pending.name }}</td>
-          <td>{{ pending.email }}</td>
-          <td>
-            <form method="post" action="/admin/users/{{ pending.id }}/approve">
-              <button type="submit">Approve</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="meta">No pending read-only registrations.</p>
-    {% endif %}
-  </div>
-
-  <div class="status-box">
-    <h2>User Roles</h2>
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Email</th>
-          <th>Role</th>
-          <th>Approved</th>
-          <th>Update</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in all_users %}
-        <tr>
-          <td>{{ row.name }}</td>
-          <td>{{ row.email }}</td>
-          <td>{{ row.role }}</td>
-          <td>{{ "yes" if row.is_approved else "no" }}</td>
-          <td>
-            <form method="post" action="/admin/users/{{ row.id }}/role" class="inline-form">
-              <select name="role">
-                <option value="admin" {% if row.role == "admin" %}selected{% endif %}>admin</option>
-                <option value="read_only" {% if row.role == "read_only" %}selected{% endif %}>read_only</option>
-              </select>
-              <button type="submit">Save</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <p class="meta">Self-demotion protection is enabled for admin accounts.</p>
+    <h2>Add Flight Log</h2>
+    <form method="post" action="/flights" class="form-grid compact two-col">
+      <label for="bird_band_number">Bird band number</label>
+      <input id="bird_band_number" name="bird_band_number" type="text" />
+      <label for="flight_date">Flight date</label>
+      <input id="flight_date" name="flight_date" type="date" required />
+      <label for="release_location">Release location</label>
+      <input id="release_location" name="release_location" type="text" />
+      <label for="arrival_location">Arrival location</label>
+      <input id="arrival_location" name="arrival_location" type="text" />
+      <label for="distance_km">Distance (km)</label>
+      <input id="distance_km" name="distance_km" type="text" />
+      <label for="duration_minutes">Duration (minutes)</label>
+      <input id="duration_minutes" name="duration_minutes" type="text" />
+      <label for="notes">Flight notes</label>
+      <textarea id="notes" name="notes" rows="2"></textarea>
+      <button type="submit">Save Flight Log</button>
+    </form>
   </div>
   {% endif %}
 
@@ -155,6 +83,7 @@
           <th>Bloodline</th>
           <th>Special colors</th>
           <th>Features / markings</th>
+          <th>Racing homers notes</th>
           <th>Family tree notes</th>
           <th>Mate band #</th>
         </tr>
@@ -172,6 +101,7 @@
           <td>{{ bird.bloodline or "-" }}</td>
           <td>{{ bird.special_colors or "-" }}</td>
           <td>{{ bird.features_markings or "-" }}</td>
+          <td>{{ bird.racing_homer_notes or "-" }}</td>
           <td>{{ bird.family_tree_notes or "-" }}</td>
           <td>{{ bird.mate_band_number or "-" }}</td>
         </tr>
@@ -183,8 +113,38 @@
     {% endif %}
   </div>
 
-  <form method="post" action="/logout">
-    <button type="submit" class="danger">Sign Out</button>
-  </form>
+  <div class="status-box">
+    <h2>Flight Logs</h2>
+    {% if flight_logs %}
+    <table class="table table-small">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Band #</th>
+          <th>Release</th>
+          <th>Arrival</th>
+          <th>Distance (km)</th>
+          <th>Duration (min)</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for flight in flight_logs %}
+        <tr>
+          <td>{{ flight.flight_date }}</td>
+          <td>{{ flight.bird_band_number or "-" }}</td>
+          <td>{{ flight.release_location or "-" }}</td>
+          <td>{{ flight.arrival_location or "-" }}</td>
+          <td>{{ flight.distance_km or "-" }}</td>
+          <td>{{ flight.duration_minutes or "-" }}</td>
+          <td>{{ flight.notes or "-" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="meta">No flight logs yet.</p>
+    {% endif %}
+  </div>
 </section>
 {% endblock %}
