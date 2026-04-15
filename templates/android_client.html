@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card wide-card">
+  <h1>Android Web-to-App Client</h1>
+  <p class="subtitle">Install this page to Android home screen. It validates the server URL and credentials, syncs with the server, and keeps a local offline cache.</p>
+
+  <div class="status-box">
+    <h2>Connection</h2>
+    <form id="mobileConnectForm" class="form-grid compact two-col">
+      <label for="server_url">Server URL</label>
+      <input id="server_url" name="server_url" type="url" required placeholder="https://your-server.example.com" />
+
+      <label for="email">User email</label>
+      <input id="email" name="email" type="email" required />
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" required />
+
+      <button type="submit">Validate + Sync</button>
+    </form>
+    <p id="mobileStatus" class="meta">No sync run yet.</p>
+  </div>
+
+  <div class="status-box">
+    <h2>Create Bird</h2>
+    <p id="birdWriteNote" class="meta">Sync once to load the groups you can edit.</p>
+    <form id="mobileBirdForm" class="form-grid compact two-col">
+      <label for="bird_ownership_group_id">Ownership group</label>
+      <select id="bird_ownership_group_id" name="ownership_group_id" required></select>
+
+      <label for="bird_user_bird_id">User bird ID</label>
+      <input id="bird_user_bird_id" name="user_bird_id" type="text" required />
+
+      <label for="bird_type">Type of bird</label>
+      <input id="bird_type" name="bird_type" type="text" required />
+
+      <label for="bird_sex">Sex of bird</label>
+      <input id="bird_sex" name="sex" type="text" required />
+
+      <label for="bird_band_number">Band number</label>
+      <input id="bird_band_number" name="band_number" type="text" />
+
+      <label for="bird_birth_date">Birth date</label>
+      <input id="bird_birth_date" name="birth_date" type="date" />
+
+      <button type="submit">Create Bird</button>
+    </form>
+  </div>
+
+  <div class="status-box">
+    <h2>Create Flight</h2>
+    <p id="flightWriteNote" class="meta">Sync once to load the groups you can edit.</p>
+    <form id="mobileFlightForm" class="form-grid compact two-col">
+      <label for="flight_ownership_group_id">Ownership group</label>
+      <select id="flight_ownership_group_id" name="ownership_group_id" required></select>
+
+      <label for="flight_bird_id">Bird ID</label>
+      <input id="flight_bird_id" name="bird_id" type="number" />
+
+      <label for="flight_bird_band_number">Bird band number</label>
+      <input id="flight_bird_band_number" name="bird_band_number" type="text" />
+
+      <label for="flight_date">Flight date</label>
+      <input id="flight_date" name="flight_date" type="date" required />
+
+      <label for="flight_release_location">Release location</label>
+      <input id="flight_release_location" name="release_location" type="text" />
+
+      <label for="flight_arrival_location">Arrival location</label>
+      <input id="flight_arrival_location" name="arrival_location" type="text" />
+
+      <label for="flight_distance_km">Distance (km)</label>
+      <input id="flight_distance_km" name="distance_km" type="text" />
+
+      <label for="flight_duration_minutes">Duration (minutes)</label>
+      <input id="flight_duration_minutes" name="duration_minutes" type="text" />
+
+      <label for="flight_notes">Notes</label>
+      <textarea id="flight_notes" name="notes" rows="2"></textarea>
+
+      <button type="submit">Create Flight</button>
+    </form>
+  </div>
+
+  <div class="status-box">
+    <h2>Cached Snapshot</h2>
+    <p class="meta">Last successful sync is stored in local browser storage for offline use.</p>
+    <pre id="cachePreview" class="cache-preview">No cached data yet.</pre>
+  </div>
+</section>
+
+<script>
+  const form = document.getElementById("mobileConnectForm");
+  const statusEl = document.getElementById("mobileStatus");
+  const cachePreview = document.getElementById("cachePreview");
+  const birdWriteNote = document.getElementById("birdWriteNote");
+  const flightWriteNote = document.getElementById("flightWriteNote");
+  const birdForm = document.getElementById("mobileBirdForm");
+  const flightForm = document.getElementById("mobileFlightForm");
+  const birdGroupSelect = document.getElementById("bird_ownership_group_id");
+  const flightGroupSelect = document.getElementById("flight_ownership_group_id");
+
+  const CACHE_KEY = "jedloft.mobile.cache.v1";
+  const CONFIG_KEY = "jedloft.mobile.config.v1";
+
+  function renderCached() {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) {
+      cachePreview.textContent = "No cached data yet.";
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      const birds = parsed.birds || [];
+      const flights = parsed.flight_logs || [];
+      cachePreview.textContent = JSON.stringify(
+        {
+          synced_at: parsed.synced_at,
+          user: parsed.user,
+          birds_count: birds.length,
+          flights_count: flights.length,
+          first_birds: birds.slice(0, 3),
+          first_flights: flights.slice(0, 3)
+        },
+        null,
+        2
+      );
+    } catch {
+      cachePreview.textContent = "Cached data exists but could not be parsed.";
+    }
+  }
+
+  function setFormEnabled(formElement, enabled) {
+    formElement.querySelectorAll("input, select, textarea, button").forEach((element) => {
+      element.disabled = !enabled;
+    });
+  }
+
+  function populateGroupSelect(selectElement, groups, placeholder) {
+    selectElement.innerHTML = "";
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = placeholder;
+    selectElement.appendChild(defaultOption);
+    groups.forEach((group) => {
+      const option = document.createElement("option");
+      option.value = String(group.id);
+      option.textContent = group.name;
+      selectElement.appendChild(option);
+    });
+  }
+
+  function applyPermissionState(payload) {
+    const editableGroups = payload.editable_groups || [];
+    const visibleGroups = payload.ownership_groups || [];
+    const canEdit = editableGroups.length > 0;
+
+    populateGroupSelect(
+      birdGroupSelect,
+      editableGroups,
+      canEdit ? "Select an editable group" : "No editable groups"
+    );
+    populateGroupSelect(
+      flightGroupSelect,
+      editableGroups,
+      canEdit ? "Select an editable group" : "No editable groups"
+    );
+
+    setFormEnabled(birdForm, canEdit);
+    setFormEnabled(flightForm, canEdit);
+    birdWriteNote.textContent = canEdit
+      ? `You can edit ${editableGroups.length} group${editableGroups.length === 1 ? "" : "s"} from the web GUI.`
+      : `Read-only access. You can view ${visibleGroups.length} group${visibleGroups.length === 1 ? "" : "s"}, but cannot create records.`;
+    flightWriteNote.textContent = birdWriteNote.textContent;
+  }
+
+  function loadSavedConfig() {
+    const raw = localStorage.getItem(CONFIG_KEY);
+    if (!raw) {
+      return;
+    }
+    try {
+      const cfg = JSON.parse(raw);
+      if (cfg.server_url) document.getElementById("server_url").value = cfg.server_url;
+      if (cfg.email) document.getElementById("email").value = cfg.email;
+    } catch {
+      // ignore malformed local config
+    }
+  }
+
+  async function validateServer(serverUrl) {
+    const healthUrl = `${serverUrl.replace(/\/$/, "")}/api/mobile/health`;
+    const res = await fetch(healthUrl, { method: "GET" });
+    if (!res.ok) {
+      throw new Error("Server URL did not respond with mobile health endpoint.");
+    }
+    const payload = await res.json();
+    if (!payload.ok) {
+      throw new Error("Server health check failed.");
+    }
+  }
+
+  async function validateCredentialsAndSync(serverUrl, email, password) {
+    const base = serverUrl.replace(/\/$/, "");
+
+    const loginRes = await fetch(`${base}/api/mobile/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: new URLSearchParams({ email, password })
+    });
+
+    const loginPayload = await loginRes.json();
+    if (!loginRes.ok || !loginPayload.ok) {
+      throw new Error(loginPayload.error || "Login validation failed.");
+    }
+
+    const basicToken = btoa(`${email}:${password}`);
+    const syncRes = await fetch(`${base}/api/mobile/sync`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Basic ${basicToken}`
+      }
+    });
+    const syncPayload = await syncRes.json();
+    if (!syncRes.ok || !syncPayload.ok) {
+      throw new Error(syncPayload.error || "Sync failed.");
+    }
+
+    localStorage.setItem(CACHE_KEY, JSON.stringify(syncPayload));
+    localStorage.setItem(CONFIG_KEY, JSON.stringify({ server_url: serverUrl, email }));
+    applyPermissionState(syncPayload);
+    renderCached();
+    return syncPayload;
+  }
+
+  function collectConnection() {
+    return {
+      serverUrl: document.getElementById("server_url").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      password: document.getElementById("password").value
+    };
+  }
+
+  function authHeaders(email, password) {
+    return {
+      Authorization: `Basic ${btoa(`${email}:${password}`)}`
+    };
+  }
+
+  async function submitMobileForm(endpoint, form) {
+    const { serverUrl, email, password } = collectConnection();
+    if (!serverUrl || !email || !password) {
+      throw new Error("Server URL, email, and password are required before submitting records.");
+    }
+
+    const response = await fetch(`${serverUrl.replace(/\/$/, "")}${endpoint}`, {
+      method: "POST",
+      headers: {
+        ...authHeaders(email, password)
+      },
+      body: new URLSearchParams(new FormData(form))
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || "Request failed.");
+    }
+    await validateCredentialsAndSync(serverUrl, email, password);
+    return payload;
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    statusEl.textContent = "Validating server and syncing...";
+
+    const serverUrl = document.getElementById("server_url").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    try {
+      await validateServer(serverUrl);
+      const payload = await validateCredentialsAndSync(serverUrl, email, password);
+      statusEl.textContent = `Synced successfully at ${payload.synced_at}. Cached birds: ${payload.birds.length}.`;
+    } catch (error) {
+      statusEl.textContent = `Sync failed: ${error.message}`;
+      renderCached();
+    }
+  });
+
+  birdForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    statusEl.textContent = "Creating bird...";
+    try {
+      const payload = await submitMobileForm("/api/mobile/birds", birdForm);
+      statusEl.textContent = `Bird created: system ID ${payload.bird.system_bird_id}, user ID ${payload.bird.user_bird_id}.`;
+      birdForm.reset();
+    } catch (error) {
+      statusEl.textContent = `Bird create failed: ${error.message}`;
+    }
+  });
+
+  flightForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    statusEl.textContent = "Creating flight...";
+    try {
+      const payload = await submitMobileForm("/api/mobile/flights", flightForm);
+      statusEl.textContent = `Flight created: ID ${payload.flight.id}.`;
+      flightForm.reset();
+    } catch (error) {
+      statusEl.textContent = `Flight create failed: ${error.message}`;
+    }
+  });
+
+  loadSavedConfig();
+  const cachedPayload = localStorage.getItem(CACHE_KEY);
+  if (cachedPayload) {
+    try {
+      applyPermissionState(JSON.parse(cachedPayload));
+    } catch {
+      // ignore malformed cached payload
+    }
+  }
+  renderCached();
+</script>
+{% endblock %}

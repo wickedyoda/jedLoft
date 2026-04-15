@@ -1,7 +1,4 @@
-## This  is jedLoft but not an iOS app, this is now as a webpage and inside of a docker container. Call it jedLoft v2!
-
-
-# jedLoft Web Host
+# jedLoft v2
 
 This repository now includes a Dockerized web host with user authentication and server-side data storage.
 
@@ -10,39 +7,58 @@ This repository now includes a Dockerized web host with user authentication and 
 1. FastAPI web application with server-rendered pages
 2. User registration and login at `/register` and `/login`
 3. Session-protected dashboard at `/dashboard`
-4. PostgreSQL for persistent server storage
+4. MySQL for persistent server storage
 5. Docker + Docker Compose for easy local hosting and management
 6. Local bind mounts:
-	- `./` mapped to `/app`
-	- `./data` mapped to `/app/data`
+   - `./` mapped to `/app`
+   - `./data` mapped to `/app/data`
 7. Role-based access (`admin`, `read_only`) with admin approval flow for self-registered users
 8. Password policy and history enforcement:
-	- Minimum 6 characters
-	- At least 2 uppercase letters
-	- Cannot reuse current or last 2 passwords
+   - Minimum 6 characters
+   - At least 2 uppercase letters
+   - Cannot reuse current or last 2 passwords
 9. Bird records with long-term SQL storage for:
-	- Type of bird
-	- Sex of bird
-	- Band number (if banded)
-	- Birth date and birthplace
-	- Foreign loft owner name
-	- Pedigree and bloodline
-	- Special colors and features/markings
-	- Family tree notes
-	- Paired mate band number
+   - Type of bird
+   - Sex of bird
+   - Band number (if banded)
+   - Birth date and birthplace
+   - Foreign loft owner name
+   - Pedigree and bloodline
+   - Special colors and features/markings
+   - Family tree notes
+   - Paired mate band number
 10. Racing homers notes and flight logs tracked in SQL
 11. Settings page for password reset, email change, colorblind theme, and text size
 12. Admin page for user approval, user enable/disable, role management, and logs export
 13. Mobile-friendly navigation menu and simplified GUI cards/tables
 14. Ownership groups for birds and flight logs with per-user `view` or `edit` access by group
+15. Bird-level sharing with `read only` (`view`) or `edit` permissions
+16. Android-ready web-to-app client page at `/android-client` with local offline cache and server credential validation
 
 ## Stack
 
 1. FastAPI
 2. SQLAlchemy
-3. PostgreSQL
+3. MySQL
 4. Jinja2 templates
 5. Docker / Docker Compose
+
+## Android Web-to-App Client
+
+Use the Android-capable client page:
+
+```text
+http://localhost:8000/android-client
+```
+
+What it does:
+
+1. Validates the configured server URL by calling `/api/mobile/health`.
+2. Validates username/password against `/api/mobile/login`.
+3. Pulls data via `/api/mobile/sync`.
+4. Stores the latest sync locally in browser storage for offline viewing.
+5. Can be installed to Android home screen (Chrome menu: "Add to Home screen").
+6. Creates birds and flights while online through `/api/mobile/birds` and `/api/mobile/flights`.
 
 ## Quick Start
 
@@ -52,13 +68,13 @@ This repository now includes a Dockerized web host with user authentication and 
 docker compose up --build
 ```
 
-2. Open the site:
+1. Open the site:
 
 ```text
 http://localhost:8000
 ```
 
-3. Create an account on the register page and log in.
+1. Create an account on the register page and log in.
 
 ## Environment Variables
 
@@ -69,13 +85,15 @@ Use `.env.example` as the template for production:
 ```env
 IMAGE_NAME=ghcr.io/wickedyoda/jedloft:latest
 WEB_PORT=8000
-POSTGRES_PORT=5432
-POSTGRES_DB=jedloft
-POSTGRES_USER=jedloft
-POSTGRES_PASSWORD=jedloft
-DATABASE_URL=postgresql+psycopg://jedloft:jedloft@db:5432/jedloft
+MYSQL_PORT=3306
+MYSQL_DATABASE=jedloft
+MYSQL_USER=jedloft
+MYSQL_PASSWORD=jedloft
+MYSQL_ROOT_PASSWORD=rootpass
+DATABASE_URL=mysql+pymysql://jedloft:jedloft@db:3306/jedloft
 SESSION_SECRET=change-this-to-a-long-random-string
 LOG_DIR=/logs
+MOBILE_ALLOWED_ORIGINS=*
 DEFAULT_ADMIN_NAME=System Admin
 DEFAULT_ADMIN_EMAIL=admin@example.com
 DEFAULT_ADMIN_PASSWORD=AdminAA1
@@ -85,16 +103,18 @@ Environment variables used by the app and compose stack:
 
 1. `IMAGE_NAME` - Docker image name published to GitHub Container Registry.
 2. `WEB_PORT` - Host port mapped to the web container.
-3. `POSTGRES_PORT` - Host port mapped to PostgreSQL.
-4. `POSTGRES_DB` - PostgreSQL database name.
-5. `POSTGRES_USER` - PostgreSQL user name.
-6. `POSTGRES_PASSWORD` - PostgreSQL user password.
-7. `DATABASE_URL` - SQLAlchemy connection string used by the app.
-8. `SESSION_SECRET` - Session signing secret.
-9. `LOG_DIR` - Log directory mounted from the host.
-10. `DEFAULT_ADMIN_NAME` - Bootstrap admin display name.
-11. `DEFAULT_ADMIN_EMAIL` - Bootstrap admin login email.
-12. `DEFAULT_ADMIN_PASSWORD` - Bootstrap admin password.
+3. `MYSQL_PORT` - Host port mapped to MySQL.
+4. `MYSQL_DATABASE` - MySQL database name.
+5. `MYSQL_USER` - MySQL user name.
+6. `MYSQL_PASSWORD` - MySQL user password.
+7. `MYSQL_ROOT_PASSWORD` - MySQL root account password.
+8. `DATABASE_URL` - SQLAlchemy connection string used by the app.
+9. `SESSION_SECRET` - Session signing secret.
+10. `LOG_DIR` - Log directory mounted from the host.
+11. `DEFAULT_ADMIN_NAME` - Bootstrap admin display name.
+12. `DEFAULT_ADMIN_EMAIL` - Bootstrap admin login email.
+13. `DEFAULT_ADMIN_PASSWORD` - Bootstrap admin password.
+14. `MOBILE_ALLOWED_ORIGINS` - Comma-separated CORS origins for mobile API clients (`*` allows all).
 
 `docker-compose.yml` reads `example.env` first, then `.env` for local overrides.
 
@@ -181,7 +201,7 @@ The workflow uses `GHCR_TOKEN` when present and falls back to `GITHUB_TOKEN` oth
 
 1. The web container runs from `/app` and binds to your local project directory (`./:/app`).
 2. The app data directory is `/app/data` and binds to `./data` (`./data:/app/data`).
-3. PostgreSQL data is persisted in `./data/postgres`.
+3. MySQL data is persisted in `./data/mysql`.
 4. Application logs are written to `/logs` and bind mounted to `./logs`.
 
 ## Security Notes
@@ -196,6 +216,6 @@ The workflow uses `GHCR_TOKEN` when present and falls back to `GITHUB_TOKEN` oth
 2. `app/models.py`: Database models
 3. `app/database.py`: SQLAlchemy engine/session setup
 4. `templates/`: Login/register/dashboard HTML pages
-5. `docker-compose.yml`: Web + PostgreSQL services
+5. `docker-compose.yml`: Web + MySQL services
 6. `data/`: Local persistent bind-mounted storage
 7. `logs/`: Exportable application logs and generated zip archives

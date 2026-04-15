@@ -42,6 +42,9 @@ class Bird(Base):
     __tablename__ = "birds"
 
     id = Column(Integer, primary_key=True, index=True)
+    owner_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    system_bird_id = Column(Integer, unique=True, nullable=True, index=True)
+    user_bird_id = Column(String(120), nullable=True, index=True)
     ownership_group_id = Column(Integer, ForeignKey("ownership_groups.id", ondelete="SET NULL"), nullable=True, index=True)
     bird_type = Column(String(120), nullable=False)
     sex = Column(String(20), nullable=False)
@@ -72,6 +75,18 @@ class FlightLog(Base):
     distance_km = Column(String(50), nullable=True)
     duration_minutes = Column(Integer, nullable=True)
     notes = Column(String(1500), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class BirdShare(Base):
+    __tablename__ = "bird_shares"
+    __table_args__ = (UniqueConstraint("bird_id", "user_id", "group_id", name="uq_bird_share_target"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    bird_id = Column(Integer, ForeignKey("birds.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    group_id = Column(Integer, ForeignKey("ownership_groups.id", ondelete="CASCADE"), nullable=True, index=True)
+    permission = Column(String(16), nullable=False, default="view")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 

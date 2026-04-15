@@ -26,6 +26,9 @@
         {% endfor %}
       </select>
 
+      <label for="user_bird_id">User bird ID</label>
+      <input id="user_bird_id" name="user_bird_id" type="text" required />
+
       <label for="bird_type">Type of bird</label>
       <input id="bird_type" name="bird_type" type="text" required />
       <label for="sex">Sex of bird</label>
@@ -105,6 +108,9 @@
       <thead>
         <tr>
           <th>Ownership group</th>
+          <th>System ID</th>
+          <th>User ID</th>
+          <th>Access</th>
           <th>Type</th>
           <th>Sex</th>
           <th>Band #</th>
@@ -118,12 +124,16 @@
           <th>Racing homers notes</th>
           <th>Family tree notes</th>
           <th>Mate band #</th>
+          <th>Share</th>
         </tr>
       </thead>
       <tbody>
         {% for bird in birds %}
         <tr>
           <td>{{ group_name_by_id.get(bird.ownership_group_id, "-") }}</td>
+          <td>{{ bird.system_bird_id or "-" }}</td>
+          <td>{{ bird.user_bird_id or "-" }}</td>
+          <td>{{ bird_permissions.get(bird.id, "-") }}</td>
           <td>{{ bird.bird_type }}</td>
           <td>{{ bird.sex }}</td>
           <td>{{ bird.band_number or "-" }}</td>
@@ -137,6 +147,25 @@
           <td>{{ bird.racing_homer_notes or "-" }}</td>
           <td>{{ bird.family_tree_notes or "-" }}</td>
           <td>{{ bird.mate_band_number or "-" }}</td>
+          <td>
+            {% if user.role == "admin" or bird.owner_user_id == user.id %}
+            <form method="post" action="/birds/{{ bird.id }}/share" class="inline-form">
+              <select name="target_user_id" required>
+                {% for target_user in shareable_users %}
+                <option value="{{ target_user.id }}">{{ target_user.email }}</option>
+                {% endfor %}
+              </select>
+              <select name="permission" required>
+                <option value="view">read only</option>
+                <option value="edit">edit</option>
+                <option value="none">remove</option>
+              </select>
+              <button type="submit">Share</button>
+            </form>
+            {% else %}
+            -
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
