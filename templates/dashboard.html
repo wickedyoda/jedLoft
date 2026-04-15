@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card wide-card">
+  <h1>Dashboard</h1>
+  <p class="subtitle">Welcome {{ user.name }} ({{ user.role }})</p>
+
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+  {% if success %}
+  <p class="success">{{ success }}</p>
+  {% endif %}
+
+  {% if user.role == "admin" %}
+  <div class="status-box">
+    <h2>Add Bird Record</h2>
+    <form method="post" action="/birds" class="form-grid compact two-col">
+      <label for="bird_type">Type of bird</label>
+      <input id="bird_type" name="bird_type" type="text" required />
+      <label for="sex">Sex of bird</label>
+      <input id="sex" name="sex" type="text" required />
+      <label for="band_number">Band number (if banded)</label>
+      <input id="band_number" name="band_number" type="text" />
+      <label for="birth_date">Birth date</label>
+      <input id="birth_date" name="birth_date" type="date" />
+      <label for="birth_place">Birthplace</label>
+      <input id="birth_place" name="birth_place" type="text" />
+      <label for="foreign_loft_owner_name">Foreign loft owner name</label>
+      <input id="foreign_loft_owner_name" name="foreign_loft_owner_name" type="text" />
+      <label for="pedigree">Pedigree</label>
+      <input id="pedigree" name="pedigree" type="text" />
+      <label for="bloodline">Bloodline</label>
+      <input id="bloodline" name="bloodline" type="text" />
+      <label for="special_colors">Special colors</label>
+      <input id="special_colors" name="special_colors" type="text" />
+      <label for="features_markings">Features / markings</label>
+      <input id="features_markings" name="features_markings" type="text" />
+      <label for="racing_homer_notes">Racing homers notes</label>
+      <textarea id="racing_homer_notes" name="racing_homer_notes" rows="2"></textarea>
+      <label for="family_tree_notes">Family tree notes</label>
+      <textarea id="family_tree_notes" name="family_tree_notes" rows="2"></textarea>
+      <label for="mate_band_number">Paired mate band number</label>
+      <input id="mate_band_number" name="mate_band_number" type="text" />
+      <button type="submit">Save Bird</button>
+    </form>
+  </div>
+
+  <div class="status-box">
+    <h2>Add Flight Log</h2>
+    <form method="post" action="/flights" class="form-grid compact two-col">
+      <label for="bird_band_number">Bird band number</label>
+      <input id="bird_band_number" name="bird_band_number" type="text" />
+      <label for="flight_date">Flight date</label>
+      <input id="flight_date" name="flight_date" type="date" required />
+      <label for="release_location">Release location</label>
+      <input id="release_location" name="release_location" type="text" />
+      <label for="arrival_location">Arrival location</label>
+      <input id="arrival_location" name="arrival_location" type="text" />
+      <label for="distance_km">Distance (km)</label>
+      <input id="distance_km" name="distance_km" type="text" />
+      <label for="duration_minutes">Duration (minutes)</label>
+      <input id="duration_minutes" name="duration_minutes" type="text" />
+      <label for="notes">Flight notes</label>
+      <textarea id="notes" name="notes" rows="2"></textarea>
+      <button type="submit">Save Flight Log</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <div class="status-box">
+    <h2>Bird Records</h2>
+    {% if birds %}
+    <table class="table table-small">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Sex</th>
+          <th>Band #</th>
+          <th>Birth date</th>
+          <th>Birthplace</th>
+          <th>Foreign loft owner</th>
+          <th>Pedigree</th>
+          <th>Bloodline</th>
+          <th>Special colors</th>
+          <th>Features / markings</th>
+          <th>Racing homers notes</th>
+          <th>Family tree notes</th>
+          <th>Mate band #</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for bird in birds %}
+        <tr>
+          <td>{{ bird.bird_type }}</td>
+          <td>{{ bird.sex }}</td>
+          <td>{{ bird.band_number or "-" }}</td>
+          <td>{{ bird.birth_date or "-" }}</td>
+          <td>{{ bird.birth_place or "-" }}</td>
+          <td>{{ bird.foreign_loft_owner_name or "-" }}</td>
+          <td>{{ bird.pedigree or "-" }}</td>
+          <td>{{ bird.bloodline or "-" }}</td>
+          <td>{{ bird.special_colors or "-" }}</td>
+          <td>{{ bird.features_markings or "-" }}</td>
+          <td>{{ bird.racing_homer_notes or "-" }}</td>
+          <td>{{ bird.family_tree_notes or "-" }}</td>
+          <td>{{ bird.mate_band_number or "-" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="meta">No bird records yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="status-box">
+    <h2>Flight Logs</h2>
+    {% if flight_logs %}
+    <table class="table table-small">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Band #</th>
+          <th>Release</th>
+          <th>Arrival</th>
+          <th>Distance (km)</th>
+          <th>Duration (min)</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for flight in flight_logs %}
+        <tr>
+          <td>{{ flight.flight_date }}</td>
+          <td>{{ flight.bird_band_number or "-" }}</td>
+          <td>{{ flight.release_location or "-" }}</td>
+          <td>{{ flight.arrival_location or "-" }}</td>
+          <td>{{ flight.distance_km or "-" }}</td>
+          <td>{{ flight.duration_minutes or "-" }}</td>
+          <td>{{ flight.notes or "-" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="meta">No flight logs yet.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

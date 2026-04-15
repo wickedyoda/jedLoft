@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card wide-card">
+  <h1>Settings</h1>
+  <p class="subtitle">Manage your password, email, display theme, and text size.</p>
+
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+  {% if success %}
+  <p class="success">{{ success }}</p>
+  {% endif %}
+
+  <div class="status-box">
+    <h2>Change Password</h2>
+    <form method="post" action="/settings/password" class="form-grid compact">
+      <label for="current_password">Current password</label>
+      <input id="current_password" name="current_password" type="password" required />
+
+      <label for="new_password">New password</label>
+      <input id="new_password" name="new_password" type="password" minlength="6" required />
+      <p class="meta">Minimum 6 characters, at least 2 uppercase letters, and no reuse of your last 2 passwords.</p>
+
+      <button type="submit">Update Password</button>
+    </form>
+  </div>
+
+  <div class="status-box">
+    <h2>Change Email</h2>
+    <form method="post" action="/settings/email" class="form-grid compact">
+      <label for="new_email">New email</label>
+      <input id="new_email" name="new_email" type="email" required />
+
+      <label for="email_password">Current password</label>
+      <input id="email_password" name="current_password" type="password" required />
+
+      <button type="submit">Update Email</button>
+    </form>
+  </div>
+
+  <div class="status-box">
+    <h2>Display</h2>
+    <form method="post" action="/settings/preferences" class="form-grid compact">
+      <label for="theme">Theme</label>
+      <select id="theme" name="theme">
+        <option value="standard" {% if user.theme == "standard" %}selected{% endif %}>standard</option>
+        <option value="colorblind" {% if user.theme == "colorblind" %}selected{% endif %}>colorblind</option>
+      </select>
+
+      <label for="text_size">Text size</label>
+      <select id="text_size" name="text_size">
+        <option value="small" {% if user.text_size == "small" %}selected{% endif %}>small</option>
+        <option value="medium" {% if user.text_size == "medium" %}selected{% endif %}>medium</option>
+        <option value="large" {% if user.text_size == "large" %}selected{% endif %}>large</option>
+      </select>
+
+      <button type="submit">Save Display Settings</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

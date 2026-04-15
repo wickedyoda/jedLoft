@@ -1,0 +1,38 @@
+services:
+  web:
+    image: ${IMAGE_NAME:-ghcr.io/protonytetv/jedloft:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jedloft-web
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    env_file:
+      - example.env
+      - .env
+    environment:
+      LOG_DIR: ${LOG_DIR:-/logs}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-secret-change-me}
+      DEFAULT_ADMIN_NAME: ${DEFAULT_ADMIN_NAME:-System Admin}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@example.com}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-AdminAA1}
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+      - ./logs:/logs
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: jedloft-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-jedloft}
+      POSTGRES_USER: ${POSTGRES_USER:-jedloft}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jedloft}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    restart: unless-stopped

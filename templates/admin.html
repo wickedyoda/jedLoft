@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card wide-card">
+  <h1>Admin</h1>
+  <p class="subtitle">Approve users, manage status and roles, and export logs.</p>
+
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+  {% if success %}
+  <p class="success">{{ success }}</p>
+  {% endif %}
+
+  <div class="status-box">
+    <h2>Pending Approvals</h2>
+    {% if pending_users %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Approve</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pending in pending_users %}
+        <tr>
+          <td>{{ pending.name }}</td>
+          <td>{{ pending.email }}</td>
+          <td>
+            <form method="post" action="/admin/users/{{ pending.id }}/approve">
+              <button type="submit">Approve</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="meta">No users waiting for approval.</p>
+    {% endif %}
+  </div>
+
+  <div class="status-box">
+    <h2>User Management</h2>
+    <table class="table table-small">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Approved</th>
+          <th>Enabled</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in all_users %}
+        <tr>
+          <td>{{ row.name }}</td>
+          <td>{{ row.email }}</td>
+          <td>{{ row.role }}</td>
+          <td>{{ "yes" if row.is_approved else "no" }}</td>
+          <td>{{ "yes" if row.is_enabled else "no" }}</td>
+          <td>
+            <div class="inline-stack">
+              <form method="post" action="/admin/users/{{ row.id }}/role" class="inline-form">
+                <select name="role">
+                  <option value="admin" {% if row.role == "admin" %}selected{% endif %}>admin</option>
+                  <option value="read_only" {% if row.role == "read_only" %}selected{% endif %}>read_only</option>
+                </select>
+                <button type="submit">Save Role</button>
+              </form>
+
+              <form method="post" action="/admin/users/{{ row.id }}/status" class="inline-form">
+                <select name="is_enabled">
+                  <option value="true" {% if row.is_enabled %}selected{% endif %}>enabled</option>
+                  <option value="false" {% if not row.is_enabled %}selected{% endif %}>disabled</option>
+                </select>
+                <button type="submit">Save Status</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="status-box">
+    <h2>Logs Export</h2>
+    <p class="meta">Export collected logs as <strong>currentdate-time.zip</strong>.</p>
+    <form method="post" action="/admin/logs/export">
+      <button type="submit">Export Logs ZIP</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
