@@ -72,19 +72,34 @@ def log_event(event: str, **fields: object) -> None:
     logger.info("event=%s %s", event, details)
 
 
-def ensure_user_table_columns() -> None:
+def _columns_exist(table_name: str, columns: set[str]) -> set[str]:
+    missing: set[str] = set()
     with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255)"))
-        conn.execute(
-            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(32) DEFAULT 'read_only' NOT NULL")
+        result = conn.execute(
+            text(
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table"
+            ),
+            {"table": table_name},
         )
-        conn.execute(
-            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE NOT NULL")
-        )
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP NULL"))
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_enabled BOOLEAN DEFAULT TRUE NOT NULL"))
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(32) DEFAULT 'standard' NOT NULL"))
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS text_size VARCHAR(16) DEFAULT 'medium' NOT NULL"))
+        existing = {row[0] for row in result}
+    return columns - existing
+
+
+def ensure_user_table_columns() -> None:
+    add_sql = {
+        "name": "ALTER TABLE users ADD COLUMN name VARCHAR(255)",
+        "role": "ALTER TABLE users ADD COLUMN role VARCHAR(32) DEFAULT 'read_only' NOT NULL",
+        "is_approved": "ALTER TABLE users ADD COLUMN is_approved BOOLEAN DEFAULT FALSE NOT NULL",
+        "approved_at": "ALTER TABLE users ADD COLUMN approved_at TIMESTAMP NULL",
+        "is_enabled": "ALTER TABLE users ADD COLUMN is_enabled BOOLEAN DEFAULT TRUE NOT NULL",
+        "theme": "ALTER TABLE users ADD COLUMN theme VARCHAR(32) DEFAULT 'standard' NOT NULL",
+        "text_size": "ALTER TABLE users ADD COLUMN text_size VARCHAR(16) DEFAULT 'medium' NOT NULL",
+    }
+    missing = _columns_exist("users", set(add_sql))
+    with engine.begin() as conn:
+        for column in missing:
+            conn.execute(text(add_sql[column]))
 
     db = SessionLocal()
     try:
@@ -109,13 +124,21 @@ def ensure_user_table_columns() -> None:
 
 
 def ensure_record_table_columns() -> None:
+    add_sql = {
+        "racing_homer_notes": "ALTER TABLE birds ADD COLUMN racing_homer_notes VARCHAR(1500)",
+        "ownership_group_id_birds": "ALTER TABLE birds ADD COLUMN ownership_group_id INTEGER",
+        "owner_user_id": "ALTER TABLE birds ADD COLUMN owner_user_id INTEGER",
+        "system_bird_id": "ALTER TABLE birds ADD COLUMN system_bird_id INTEGER",
+        "user_bird_id_birds": "ALTER TABLE birds ADD COLUMN user_bird_id VARCHAR(120)",
+        "ownership_group_id_flights": "ALTER TABLE flight_logs ADD COLUMN ownership_group_id INTEGER",
+    }
+    birds_existing = _columns_exist("birds", {"racing_homer_notes", "ownership_group_id", "owner_user_id", "system_bird_id", "user_bird_id"})
+    flights_existing = _columns_exist("flight_logs", {"ownership_group_id"})
     with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE birds ADD COLUMN IF NOT EXISTS racing_homer_notes VARCHAR(1500)"))
-        conn.execute(text("ALTER TABLE birds ADD COLUMN IF NOT EXISTS ownership_group_id INTEGER"))
-        conn.execute(text("ALTER TABLE birds ADD COLUMN IF NOT EXISTS owner_user_id INTEGER"))
-        conn.execute(text("ALTER TABLE birds ADD COLUMN IF NOT EXISTS system_bird_id INTEGER"))
-        conn.execute(text("ALTER TABLE birds ADD COLUMN IF NOT EXISTS user_bird_id VARCHAR(120)"))
-        conn.execute(text("ALTER TABLE flight_logs ADD COLUMN IF NOT EXISTS ownership_group_id INTEGER"))
+        for column in birds_existing:
+            conn.execute(text(add_sql[column]))
+        for column in flights_existing:
+            conn.execute(text(add_sql["ownership_group_id_flights"]))
 
 
 def next_system_bird_id(db: Session, reserved_ids: set[int] | None = None) -> int:
@@ -325,6 +348,7 @@ def render(
     payload = {
         "request": request,
         "nav_user": user,
+        "user": user,
         "theme_class": theme_class,
         "text_size_class": text_size_class,
     }
