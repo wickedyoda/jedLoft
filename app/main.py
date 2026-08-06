@@ -8,7 +8,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Form, Request
+from fastapi import Depends, FastAPI, Form, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -17,6 +17,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .auth import hash_password, verify_password
 from .database import Base, SessionLocal, engine
@@ -48,8 +49,41 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET", "dev-secret-change-me"),
     same_site="lax",
-    https_only=False,
+    https_only=os.getenv("SESSION_COOKIE_SECURE", "").lower() in {"1", "true"},
 )
+
+
+class SecurityHeadersMiddleware:
+    """Add basic security headers to all HTTP responses."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = message.get("headers", [])
+                header_pairs = {k: v for k, v in headers}
+                security_headers = {
+                    b"x-content-type-options": b"nosniff",
+                    b"x-frame-options": b"DENY",
+                    b"x-xss-protection": b"0",
+                    b"referrer-policy": b"strict-origin-when-cross-origin",
+                    b"content-security-policy": b"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'",
+                }
+                for key, value in security_headers.items():
+                    header_pairs.setdefault(key, value)
+                message["headers"] = list(header_pairs.items())
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 allowed_origins = [origin.strip() for origin in os.getenv("MOBILE_ALLOWED_ORIGINS", "*").split(",") if origin.strip()]
 app.add_middleware(
@@ -353,7 +387,7 @@ def render(
         "text_size_class": text_size_class,
     }
     payload.update(context)
-    return templates.TemplateResponse(template_name, payload, status_code=status_code)
+    return templates.TemplateResponse(request, template_name, payload, status_code=status_code)
 
 
 def current_user(request: Request, db: Session) -> User | None:
@@ -605,6 +639,7 @@ def login(
         log_event("login_blocked_pending", email=normalized_email)
         return render("login.html", request, error="Your account is pending admin approval.", status_code=403)
 
+    request.session.clear()
     request.session["user_id"] = user.id
     log_event("login_success", user_id=user.id, email=user.email)
     return RedirectResponse("/dashboard", status_code=302)
@@ -796,7 +831,7 @@ def mobile_user_from_credentials(
 
 @app.get("/android-client", response_class=HTMLResponse)
 def android_client_page(request: Request):
-    return templates.TemplateResponse("android_client.html", {"request": request, "nav_user": None, "theme_class": "", "text_size_class": ""})
+    return templates.TemplateResponse(request, "android_client.html", {"request": request, "nav_user": None, "theme_class": "", "text_size_class": ""})
 
 
 @app.get("/api/mobile/health")

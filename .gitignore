@@ -3,3 +3,5 @@ logs/*
 !logs/.gitkeep
 data/
 .env
+__pycache__/
+*.pyc
