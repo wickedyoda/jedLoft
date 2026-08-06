@@ -2,7 +2,7 @@
 {% block content %}
 <section class="card wide-card">
   <h1>Admin</h1>
-  <p class="subtitle">Approve users, manage status and roles, and export logs.</p>
+  <p class="subtitle">Approve users, manage status and roles, ownership groups, and export logs.</p>
 
   {% if error %}
   <p class="error">{{ error }}</p>
@@ -85,6 +85,85 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
+
+  <div class="status-box">
+    <h2>Ownership Groups</h2>
+    <form method="post" action="/admin/groups" class="inline-form">
+      <label for="group_name">New group name</label>
+      <input id="group_name" name="name" type="text" required />
+      <button type="submit">Create Group</button>
+    </form>
+
+    {% if ownership_groups %}
+    <table class="table table-small">
+      <thead>
+        <tr>
+          <th>Group</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in ownership_groups %}
+        <tr>
+          <td>{{ group.name }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="meta">No ownership groups created yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="status-box">
+    <h2>User Ownership Access</h2>
+    <form method="post" action="/admin/groups/memberships" class="form-grid compact two-col">
+      <label for="membership_user_id">User</label>
+      <select id="membership_user_id" name="user_id" required>
+        {% for row in all_users %}
+        <option value="{{ row.id }}">{{ row.email }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="membership_group_id">Ownership group</label>
+      <select id="membership_group_id" name="group_id" required>
+        {% for group in ownership_groups %}
+        <option value="{{ group.id }}">{{ group.name }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="membership_permission">Permission</label>
+      <select id="membership_permission" name="permission" required>
+        <option value="view">view</option>
+        <option value="edit">edit</option>
+        <option value="none">remove access</option>
+      </select>
+
+      <button type="submit">Save Access</button>
+    </form>
+
+    {% if membership_rows %}
+    <table class="table table-small">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Group</th>
+          <th>Permission</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for membership in membership_rows %}
+        <tr>
+          <td>{{ membership.user_email }}</td>
+          <td>{{ membership.group_name }}</td>
+          <td>{{ membership.permission }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="meta">No user ownership permissions assigned yet.</p>
+    {% endif %}
   </div>
 
   <div class="status-box">

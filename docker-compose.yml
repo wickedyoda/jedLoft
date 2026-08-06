@@ -25,14 +25,15 @@ services:
     restart: unless-stopped
 
   db:
-    image: postgres:16-alpine
+    image: mysql:8.4
     container_name: jedloft-db
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-jedloft}
-      POSTGRES_USER: ${POSTGRES_USER:-jedloft}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jedloft}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-jedloft}
+      MYSQL_USER: ${MYSQL_USER:-jedloft}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-jedloft}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - ./data/mysql:/var/lib/mysql
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${MYSQL_PORT:-3306}:3306"
     restart: unless-stopped

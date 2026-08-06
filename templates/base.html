@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>jedLoft Web</title>
+    <meta name="theme-color" content="#2f6d62" />
+    <link rel="manifest" href="/static/manifest.webmanifest" />
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body class="{{ theme_class }} {{ text_size_class }}">
@@ -13,6 +15,7 @@
       <nav class="menu">
         <a href="/dashboard">Dashboard</a>
         <a href="/settings">Settings</a>
+        <a href="/android-client">Android Client</a>
         {% if nav_user.role == "admin" %}
         <a href="/admin">Admin</a>
         {% endif %}
@@ -25,5 +28,12 @@
     <main class="container {% if nav_user %}container-with-nav{% endif %}">
       {% block content %}{% endblock %}
     </main>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/static/mobile-sw.js").catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

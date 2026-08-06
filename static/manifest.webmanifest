@@ -1,0 +1,17 @@
+{
+  "name": "jedLoft Android Client",
+  "short_name": "jedLoft",
+  "start_url": "/android-client",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#2f6d62",
+  "description": "Android web-to-app client with local cache and server sync.",
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
