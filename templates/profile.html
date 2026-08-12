@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card wide-card">
+  <h1>Profile</h1>
+  <p class="subtitle">View and manage your profile information.</p>
+
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+  {% if success %}
+  <p class="success">{{ success }}</p>
+  {% endif %}
+
+  <div class="status-box">
+    <h2>Profile Details</h2>
+    <table class="table table-small">
+      <tbody>
+        <tr>
+          <th>Name</th>
+          <td>{{ user.name }}</td>
+        </tr>
+        <tr>
+          <th>Email</th>
+          <td>{{ user.email }}</td>
+        </tr>
+        <tr>
+          <th>Role</th>
+          <td>{{ user.role }}</td>
+        </tr>
+        <tr>
+          <th>Approved</th>
+          <td>{{ "yes" if user.is_approved else "no" }}</td>
+        </tr>
+        <tr>
+          <th>Enabled</th>
+          <td>{{ "yes" if user.is_enabled else "no" }}</td>
+        </tr>
+        <tr>
+          <th>Member since</th>
+          <td>{{ user.created_at.strftime("%Y-%m-%d") if user.created_at else "unknown" }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="status-box">
+    <h2>Edit Name</h2>
+    <form method="post" action="/profile/name" class="form-grid compact">
+      <label for="name">Display name</label>
+      <input id="name" name="name" type="text" value="{{ user.name }}" required />
+      <button type="submit">Update Name</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
