@@ -718,6 +718,40 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
     return render("settings.html", request, user=user, error=None, success=None)
 
 
+@app.get("/profile", response_class=HTMLResponse)
+def profile_page(request: Request, db: Session = Depends(get_db)):
+    user, state = active_session_user(request, db)
+    if not user:
+        if state == "disabled":
+            return render("login.html", request, error="Your account is disabled.", status_code=403)
+        if state == "pending":
+            return render("login.html", request, error="Your account is pending admin approval.", status_code=403)
+        return RedirectResponse("/login", status_code=302)
+
+    return render("profile.html", request, user=user, error=None, success=None)
+
+
+@app.post("/profile/name", response_class=HTMLResponse)
+def change_name(
+    request: Request,
+    name: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user, state = active_session_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+
+    normalized_name = name.strip()
+    if not normalized_name or len(normalized_name) < 2:
+        return render("profile.html", request, user=user, error="Name must be at least 2 characters.", success=None, status_code=400)
+
+    user.name = normalized_name
+    db.add(user)
+    db.commit()
+    log_event("profile_name_updated", user_id=user.id, new_name=normalized_name)
+    return render("profile.html", request, user=user, error=None, success=f"Name updated to '{normalized_name}'.")
+
+
 @app.post("/settings/password", response_class=HTMLResponse)
 def change_password(
     request: Request,
